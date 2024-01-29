@@ -20,7 +20,6 @@ class S3DataLake(BaseDataLake):
             logger: logging,
             access_key: str = os.environ['AWS_ACCESS_KEY_ID'],
             secret_key: str = os.environ['AWS_SECRET_ACCESS_KEY'],
-            bucket: str = os.environ['BUCKET_RAW_DATA'],
     ) -> None:
         """Initiate the S3DataLake instance
 
@@ -210,7 +209,22 @@ class S3DataLake(BaseDataLake):
             destination_path: str,
             logger: logging,
     ) -> None:
-        
+        """Move file from `source_bucket/source_path` to
+        `destination_bucket/destination_path`
+
+        Parameters
+        ----------
+        source_bucket : str
+            Name of source bucket
+        source_path : str
+            Absolute path from bucket to file
+        destination_bucket : str
+            Name of destination bucket
+        destination_path : str
+            Absolute path from bucket to file
+        logger : logging
+            Log object
+        """
         # Copy and delete
         # from source_bucket/source_path
         # to destination_bucket/destination_path
@@ -220,20 +234,83 @@ class S3DataLake(BaseDataLake):
             self.s3_client.copy_object(
                 CopySource={'Bucket': source_bucket, 'Key': source_path},
                 Bucket=destination_bucket,   
-                Key=destination_path
+                Key=destination_path,
             )
             
             # Delete
-            self.s3_client.delete_object(Bucket=source_bucket, Key=source_path)
+            self.s3_client.delete_object(
+                Bucket = source_bucket, 
+                Key = source_path,
+            )
             
             # Logging
             logger.info(
-                f"File moved successfully : {source_path} to {destination_path}"
+                "File moved successfully : " \
+                    + f"{source_path} to {destination_path}"
             )
         
         # Raise if fail
         except Exception as e:
             logger.error(f"Error moving file: {e}")
+    
+    #------------------------------------------------------------------------#
+    
+    def download_file(
+            self,
+            bucket_name: str,
+            target_prefix: str, 
+            logger: logging,
+            local_path: str = "tmp_download",
+    ) -> None:
+        """Download file to local
+
+        Parameters
+        ----------
+        bucket_name : str
+            Name of bucket
+        target_prefix : str
+            Prefix of files
+        logger: logging
+            Logger object
+        local_path : str
+            Path to down load
+        """
+        if not os.path.exists(local_path):
+            os.makedirs(local_path)
+            
+        # Iterate over file
+        try:
+            # List objects with the specified prefix
+            response = self.s3_client.list_objects_v2(
+                Bucket=bucket_name, 
+                Prefix=target_prefix,
+            )
+
+            # Download each object
+            for obj in response.get('Contents', []):
+                key = obj['Key']
+                local_file_path = os.path.join(
+                    local_path, 
+                    os.path.basename(key),
+                )
+                
+                # Ensure the local_file_path is not a directory
+                if not os.path.isdir(local_file_path):
+                    
+                    # Download
+                    self.s3_client.download_file(
+                        bucket_name, 
+                        key, 
+                        local_file_path,
+                    )
+                    
+                    # Logging
+                    logger.info(f"Downloaded: {key} -> {local_file_path}")
+                    
+        # Except, error
+        except Exception as e:
+            print(f"Error downloading files from S3: {e}")
+            logger.info(f"Error downloading {key}: {e}")
     
     #------------------------------------------------------------------------#
     

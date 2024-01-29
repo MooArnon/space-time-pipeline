@@ -2,6 +2,7 @@
 # Import #
 #----------------------------------------------------------------------------#
 
+import os
 import logging
 from space_time_pipeline.data_lake import S3DataLake
 
@@ -9,7 +10,8 @@ from space_time_pipeline.data_lake import S3DataLake
 # Statics #
 #----------------------------------------------------------------------------#
 
-logger = logging.getLogger("airflow")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 s3 = S3DataLake(logger)
 
 #-----------#
@@ -36,3 +38,15 @@ s3.move_file(
     logger = logger
 )
 """
+
+#----------------------------------------------------------------------------#
+# Download file #
+#---------------#
+"""
+s3.download_file(
+    bucket_name = os.environ['BUCKET_RAW_DATA'],
+    target_prefix = f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/processing",
+    logger = logger
+)
+"""
+

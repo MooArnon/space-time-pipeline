@@ -11,7 +11,7 @@ from abc import abstractmethod
 class BaseDataLake:
     
     @abstractmethod
-    def upload_to_data_lake(target_file: object, prefix: str):
+    def upload_to_data_lake(target_file: object, prefix: str, **kwargs):
         """Upload file to prefix
 
         Parameters
@@ -25,7 +25,7 @@ class BaseDataLake:
     #------------------------------------------------------------------------#
     
     @abstractmethod
-    def download_file(target_prefix: str, local_path: str):
+    def download_file(target_prefix: str, local_path: str, **kwargs):
         """Download files to local working directory
 
         Parameters
