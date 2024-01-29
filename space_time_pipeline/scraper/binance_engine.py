@@ -50,6 +50,7 @@ class BinanceScraper(BaseScraper):
     def scrape(
             self, 
             assets: list[str],
+            result_path: str = "tmp_scrape",
             return_result: list[dict] = False,
     ) -> list[dict]:
         """Scrape the data, use API in this case
@@ -75,7 +76,7 @@ class BinanceScraper(BaseScraper):
             data = requests.get(url) 
             
             # Get current date
-            timestamp = datetime.now()
+            timestamp = datetime.utcnow()
             timestamp_json = timestamp.strftime('%Y-%m-%d %H:%M:%S')
             timestamp_file_name = timestamp.strftime('%Y%m%d_%H%M%S')
             
@@ -93,13 +94,13 @@ class BinanceScraper(BaseScraper):
             # Export
             # Convert date format
             file_name = f"{result['asset']}_{timestamp_file_name}.json"
-            self.export_json(result, 'tmp', file_name)
+            self.export_json(result, result_path, file_name)
             
             scraped_result.append(result)
         
         # Return value if needed
         if return_result is True:
-            return result
+            return scraped_result
         
         # delete result, prevent memory leak
         del scraped_result
