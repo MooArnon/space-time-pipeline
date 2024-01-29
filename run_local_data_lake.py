@@ -2,7 +2,6 @@
 # Import #
 #----------------------------------------------------------------------------#
 
-import os
 import logging
 from space_time_pipeline.data_lake import S3DataLake
 
