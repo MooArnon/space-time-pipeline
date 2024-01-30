@@ -133,6 +133,9 @@ class S3DataLake(BaseDataLake):
         # Loop over dir
         elif target_dir:
             
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
+            
             # List all file at dir
             file_in_dir = os.listdir(target_dir)
             
