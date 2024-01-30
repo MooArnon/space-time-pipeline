@@ -85,7 +85,7 @@ class BinanceScraper(BaseScraper):
             
             # Result
             result = self.get_default_dict()
-            
+            print(f"DATA: {data}")
             # Append value
             result["timestamp"] = timestamp_json
             result["asset"] = data["symbol"]
