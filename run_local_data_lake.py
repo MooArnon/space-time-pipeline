@@ -23,9 +23,10 @@ s3 = S3DataLake(logger)
 s3.upload_to_data_lake(
     s3_bucket = os.environ['BUCKET_RAW_DATA'],
     prefix = f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/to_be_processed",
-    target_dir = "tmp",
+    target_dir = "tmp_scrape",
 )
 """
+
 #----------------------------------------------------------------------------#
 # Move file #
 #-----------#
@@ -49,4 +50,4 @@ s3.download_file(
     logger = logger
 )
 """
-
+#----------------------------------------------------------------------------#
