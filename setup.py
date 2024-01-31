@@ -21,6 +21,8 @@ packages: list[str] = find_packages(
         'tests.*', 
         'experiment',
         'experiment.*',
+        'run_local*'
+        'run_local.*'
     ]
 )
 
