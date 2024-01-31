@@ -20,10 +20,10 @@ class MySQLDataWarehouse(BaseDataWarehouse):
     
     def __init__(
             self,
-            host: str = os.environ['DB_HOST'], 
-            user: str = os.environ['DB_USERNAME'], 
-            password: str = os.environ['DB_PASSWORD'], 
-            database: str = os.environ['DB_NAME'],
+            host: str = os.environ.get('DB_HOST'), 
+            user: str = os.environ.get('DB_USERNAME'), 
+            password: str = os.environ.get('DB_PASSWORD'), 
+            database: str = os.environ.get('DB_NAME'),
     ) -> None:
         """Initiate MySQLDataWarehouse
 
@@ -31,16 +31,16 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         ----------
         host : str, optional
             Host of MySQL, 
-            by default os.environ['DW_HOST']
+            by default os.environ.get('DW_HOST')
         user : str, optional
             Name of user, 
-            by default os.environ['DW_USER']
+            by default os.environ.get('DW_USER')
         password : str, optional
             Password, 
-            by default os.environ['DW_PASSWORD']
+            by default os.environ.get('DW_PASSWORD')
         database : str, optional
             Name of database, 
-            by default os.environ['DW_DATABASE']
+            by default os.environ.get('DW_DATABASE')
         """
         self.set_connector(
             host = host,

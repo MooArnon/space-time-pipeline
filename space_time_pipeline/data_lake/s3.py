@@ -18,8 +18,8 @@ class S3DataLake(BaseDataLake):
     def __init__(
             self,
             logger: logging,
-            access_key: str = os.environ['AWS_ACCESS_KEY_ID'],
-            secret_key: str = os.environ['AWS_SECRET_ACCESS_KEY'],
+            access_key: str = os.environ.get('AWS_ACCESS_KEY_ID'),
+            secret_key: str = os.environ.get('AWS_SECRET_ACCESS_KEY'),
     ) -> None:
         """Initiate the S3DataLake instance
 
@@ -27,10 +27,10 @@ class S3DataLake(BaseDataLake):
         ----------
         access_key : str, optional
             access_key from AWS, 
-            by default os.environ['AWS_ACCESS_KEY_ID']
+            by default os.environ.get(AWS_ACCESS_KEY_ID')
         secret_key : str, optional
             secret_key from AWS,
-            by default os.environ['AWS_SECRET_ACCESS_KEY']
+            by default os.environ.get(AWS_SECRET_ACCESS_KEY')
         """
         # Set the client
         self.set_s3_client(access_key, secret_key)
