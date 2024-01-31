@@ -103,7 +103,7 @@ class MySQLDataWarehouse(BaseDataWarehouse):
     # SQL #
     #-----#
     
-    def execute_sql_file(self, file_path: str) -> None:
+    def execute_sql_file(self, logger:logging, file_path: str) -> None:
         """Execute the query, return nothing if select
 
         Parameters
@@ -113,17 +113,23 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         """
         queries = self.read_query_file(file_path)
 
-        # Execute each query
-        for query in queries:
-            query = query.strip()
-            if query:
-                self.cursor.execute(query)
-        self.connector.commit()
-        self.connector.close()
+        try:
+            # Execute each query
+            for query in queries:
+                query = query.strip()
+                if query:
+                    self.cursor.execute(query)
+                    
+        except Error as e:
+            logger.error("Error while inserting data into MySQL:", e)
+            
+        finally:
+            self.cursor.close()
+            self.connector.close()
         
     #------------------------------------------------------------------------#
     
-    def select(self, file_path: str) -> pd.DataFrame:
+    def select(self, logger: logging, file_path: str) -> pd.DataFrame:
         """Run query that select the data, fetch all data to data frame
 
         Parameters
@@ -139,24 +145,28 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         # Read queries
         queries = self.read_query_file(file_path)
         
-        # Execute each query
-        for query in queries:
-            query = query.strip()
-            if query:
-                self.cursor.execute(query)
+        try:
+            # Execute each query
+            for query in queries:
+                query = query.strip()
+                if query:
+                    self.cursor.execute(query)
 
-        # Fetch the data
-        data = self.cursor.fetchall()
+            # Fetch the data
+            data = self.cursor.fetchall()
 
-        # Get column names
-        column_names = [desc[0] for desc in self.cursor.description]
+            # Get column names
+            column_names = [desc[0] for desc in self.cursor.description]
 
-        # Create pandas DataFrame
-        df = pd.DataFrame(data, columns=column_names)
-
-        # Close the cursor and connection
-        self.cursor.close()
-        self.connector.close()
+            # Create pandas DataFrame
+            df = pd.DataFrame(data, columns=column_names)
+            
+        except Error as e:
+            logger.error("Error while inserting data into MySQL:", e)
+            
+        finally:
+            self.cursor.close()
+            self.connector.close()
 
         return df
     
@@ -236,23 +246,31 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         # List all file
         json_dir = os.listdir(json_dir_path)
         
-        # Iterate over json_dir
-        for json_path in json_dir:
-            
-            json_path = os.path.join(json_dir_path, json_path)
-            
-            # Read and modify data frame
-            df = self.modify_json_df(json_path, rename_dict)
-            
-            # Insert data
-            self.insert_data(
-                table_name = table_name, 
-                df = df, 
-                logger = logger,
-            )
+        try:
+            # Iterate over json_dir
+            for json_path in json_dir:
+                
+                json_path = os.path.join(json_dir_path, json_path)
+                
+                # Read and modify data frame
+                df = self.modify_json_df(json_path, rename_dict)
+                
+                # Insert data
+                self.insert_data(
+                    table_name = table_name, 
+                    df = df, 
+                    logger = logger,
+                )
         
-        self.cursor.close()
-        self.connector.close()
+        except Error as e:
+            logger.error("Error while inserting data into MySQL:", e)
+            self.connector.rollback()
+            self.cursor.close()
+            self.connector.close()
+        
+        finally:
+            self.cursor.close()
+            self.connector.close()
         
     #------------------------------------------------------------------------#
     
