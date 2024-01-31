@@ -197,27 +197,20 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         insert_query = \
             f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
         
-        try:
-            # Iterate over each row in the DataFrame
-            for _, row in df.iterrows():
-                # Extract values from the row
-                values = tuple(row)
-                
-                # Execute the INSERT INTO statement
-                self.cursor.execute(insert_query, values)
+        # Iterate over each row in the DataFrame
+        for _, row in df.iterrows():
+            # Extract values from the row
+            values = tuple(row)
             
-            # Commit the transaction
-            self.connector.commit()
-            logger.info(
-                "Data inserted successfully into MySQL table:", 
-                table_name,
-            )
-            
-        except Error as e:
-            logger.error("Error while inserting data into MySQL:", e)
-            self.connector.rollback()
-            self.cursor.close()
-            self.connector.close()
+            # Execute the INSERT INTO statement
+            self.cursor.execute(insert_query, values)
+        
+        # Commit the transaction
+        self.connector.commit()
+        logger.info(
+            "Data inserted successfully into MySQL table:", 
+            table_name,
+        )
 
     #------------------------------------------------------------------------#
     # Insert #
