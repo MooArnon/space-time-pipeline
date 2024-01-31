@@ -232,19 +232,38 @@ class S3DataLake(BaseDataLake):
         # from source_bucket/source_path
         # to destination_bucket/destination_path
         try:
+            # List objects in the source prefix
+            response = self.s3_client.list_objects_v2(
+                Bucket=source_bucket, 
+                Prefix=source_path,
+            )
             
             # Copy
-            self.s3_client.copy_object(
-                CopySource={'Bucket': source_bucket, 'Key': source_path},
-                Bucket=destination_bucket,   
-                Key=destination_path,
-            )
-            
-            # Delete
-            self.s3_client.delete_object(
-                Bucket = source_bucket, 
-                Key = source_path,
-            )
+            # Iterate through objects and move them
+            for obj in response.get('Contents', []):
+                source_key = obj['Key']
+                destination_key = source_key.replace(
+                    source_path, 
+                    destination_path, 
+                    1,
+                )
+
+                # Copy the object to the new destination
+                copy_source = {
+                    'Bucket': destination_bucket,
+                    'Key': source_key
+                }
+                self.s3_client.copy_object(
+                    CopySource=copy_source, 
+                    Bucket=destination_bucket, 
+                    Key=destination_key,
+                )
+                
+                # Delete the original object
+                self.s3_client.delete_object(
+                    Bucket=source_bucket, 
+                    Key=source_key,
+                )
             
             # Logging
             logger.info(

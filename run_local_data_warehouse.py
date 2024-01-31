@@ -40,7 +40,12 @@ rename_dict = {
     "engine": "engine_id"
 }
 
-sql = MySQLDataWarehouse()
+sql = MySQLDataWarehouse(
+    host = os.environ.get('DB_HOST'),
+    user = os.environ.get('DB_USERNAME'),
+    password = os.environ.get('DB_PASSWORD'),
+    database = os.environ.get('DB_NAME'),
+)
 
 sql.iterative_read_insert_json(
     json_dir_path = "tmp_scrape",

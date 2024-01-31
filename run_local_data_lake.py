@@ -30,15 +30,20 @@ s3.upload_to_data_lake(
 #----------------------------------------------------------------------------#
 # Move file #
 #-----------#
-"""
+
+raw_data__raw_target_prefix_to_be_processed = \
+    f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/to_be_processed/"
+raw_data__raw_target_prefix_processing = \
+    f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/processing/"
+
 s3.move_file(
-    source_bucket = os.environ['BUCKET_RAW_DATA'],
-    source_path = f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/to_be_processed/BTCUSDT_20240129_191815.json",
-    destination_bucket = os.environ['BUCKET_RAW_DATA'],
-    destination_path = f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/processing/BTCUSDT_20240129_191815.json",
-    logger = logger
-)
-"""
+        source_bucket = os.environ['BUCKET_RAW_DATA'],
+        source_path = raw_data__raw_target_prefix_to_be_processed,
+        destination_bucket = os.environ['BUCKET_RAW_DATA'],
+        destination_path = raw_data__raw_target_prefix_processing,
+        logger = logger
+    )
+
 
 #----------------------------------------------------------------------------#
 # Download file #
