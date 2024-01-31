@@ -10,7 +10,7 @@ scraper.scrape(
 data = scraper.scrape(
     assets=["BTCUSDT", "BNBUSDT"],
     return_result = True,
-    result_path = "tmp_tests"
+    result_path = "tmp_scrape"
 )
 
 assert isinstance(data, list)
