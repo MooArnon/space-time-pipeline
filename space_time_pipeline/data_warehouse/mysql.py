@@ -2,9 +2,12 @@
 # Import #
 #----------------------------------------------------------------------------#
 
+import logging
+import json
 import os 
 
 import mysql.connector
+from mysql.connector import Error
 import pandas as pd
 
 from .__base import BaseDataWarehouse
@@ -17,10 +20,10 @@ class MySQLDataWarehouse(BaseDataWarehouse):
     
     def __init__(
             self,
-            host: str = os.environ['DW_HOST'], 
-            user: str = os.environ['DW_USER'], 
-            password: str = os.environ['DW_PASSWORD'], 
-            database: str = os.environ['DW_DATABASE'],
+            host: str = os.environ['DB_HOST'], 
+            user: str = os.environ['DB_USERNAME'], 
+            password: str = os.environ['DB_PASSWORD'], 
+            database: str = os.environ['DB_NAME'],
     ) -> None:
         """Initiate MySQLDataWarehouse
 
@@ -97,7 +100,9 @@ class MySQLDataWarehouse(BaseDataWarehouse):
     #--------#
     # Method #
     #------------------------------------------------------------------------#
-
+    # SQL #
+    #-----#
+    
     def execute_sql_file(self, file_path: str) -> None:
         """Execute the query, return nothing if select
 
@@ -153,6 +158,131 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         self.cursor.close()
         self.connector.close()
 
+        return df
+    
+    #------------------------------------------------------------------------#
+    
+    def insert_data(
+            self, 
+            table_name: str, 
+            df: pd.DataFrame, 
+            logger:logging,
+    ) -> None:
+        """Insert data
+
+        Parameters
+        ----------
+        table_name : str
+            Name of table
+        df : pd.DataFrame
+            Data frame
+        logger : logging
+            Logger object
+        """
+        # Get column names from the DataFrame
+        columns = ', '.join(df.columns.tolist())
+        
+        # Prepare the INSERT INTO statement with placeholders
+        placeholders = ', '.join(['%s'] * len(df.columns))
+        insert_query = \
+            f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        
+        try:
+            # Iterate over each row in the DataFrame
+            for _, row in df.iterrows():
+                # Extract values from the row
+                values = tuple(row)
+                
+                # Execute the INSERT INTO statement
+                self.cursor.execute(insert_query, values)
+            
+            # Commit the transaction
+            self.connector.commit()
+            logger.info(
+                "Data inserted successfully into MySQL table:", 
+                table_name,
+            )
+            
+        except Error as e:
+            logger.error("Error while inserting data into MySQL:", e)
+            self.connector.rollback()
+            self.cursor.close()
+            self.connector.close()
+
+    #------------------------------------------------------------------------#
+    # Insert #
+    #--------#
+
+    def iterative_read_insert_json(
+            self,
+            json_dir_path: str,
+            table_name: str, 
+            rename_dict: dict,
+            logger:logging,
+    ) -> None:
+        """Iterative read and insert data to database
+
+        Parameters
+        ----------
+        json_dir_path : str
+            Path to folder that contains json
+        table_name : str
+            Name of table
+        rename_dict : dict
+            Rename dictionary
+        logger : logging
+            Logger object
+        """
+        # List all file
+        json_dir = os.listdir(json_dir_path)
+        
+        # Iterate over json_dir
+        for json_path in json_dir:
+            
+            json_path = os.path.join(json_dir_path, json_path)
+            
+            # Read and modify data frame
+            df = self.modify_json_df(json_path, rename_dict)
+            
+            # Insert data
+            self.insert_data(
+                table_name = table_name, 
+                df = df, 
+                logger = logger,
+            )
+        
+        self.cursor.close()
+        self.connector.close()
+        
+    #------------------------------------------------------------------------#
+    
+    @staticmethod
+    def modify_json_df(json_path: str, rename_dict: dict) -> pd.DataFrame:
+        """Read json and modify data frame
+
+        Parameters
+        ----------
+        json_path : str
+            Path of json
+        rename_dict : dict
+            Rename dictionary
+
+        Returns
+        -------
+        pd.DataFrame
+            Modified output
+        """
+        # read json
+        with open(json_path, 'r') as file:
+            json_data = json.load(file)
+
+        # Check if single record
+        if isinstance(json_data, dict):
+            json_data = [json_data]
+        
+        # Rename
+        df = pd.DataFrame(json_data).rename(columns = rename_dict)
+        
         return df
     
     #------------------------------------------------------------------------#
