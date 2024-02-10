@@ -41,15 +41,15 @@ rename_dict = {
 }
 
 sql = PostgreSQLDataWarehouse()
-"""
+
 sql.iterative_read_insert_json(
-    json_dir_path = "tmp_download",
+    json_dir_path = "tmp_scrape",
     table_name = "staging.fact_raw_data",
     rename_dict = rename_dict,
     logger = logger
 )
+
 """
-
 sql.execute_sql_file(logger=logger, file_path="run_local_data_warehouse.sql")
-
+"""
 #----------------------------------------------------------------------------#
