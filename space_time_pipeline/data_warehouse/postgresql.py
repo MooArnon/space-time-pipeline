@@ -6,8 +6,7 @@ import logging
 import json
 import os 
 
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
 import pandas as pd
 
 from .__base import BaseDataWarehouse
@@ -16,46 +15,14 @@ from .__base import BaseDataWarehouse
 # Classes #
 #----------------------------------------------------------------------------#
 
-class MySQLDataWarehouse(BaseDataWarehouse):
+class PostgreSQLDataWarehouse(BaseDataWarehouse):
     
-    def __init__(
-            self,
-            host: str = os.environ.get('DB_HOST'), 
-            user: str = os.environ.get('DB_USERNAME'), 
-            password: str = os.environ.get('DB_PASSWORD'), 
-            database: str = os.environ.get('DB_NAME'),
-    ) -> None:
-        """Initiate MySQLDataWarehouse
-
-        Parameters
-        ----------
-        host : str, optional
-            Host of MySQL, 
-            by default os.environ.get('DW_HOST')
-        user : str, optional
-            Name of user, 
-            by default os.environ.get('DW_USER')
-        password : str, optional
-            Password, 
-            by default os.environ.get('DW_PASSWORD')
-        database : str, optional
-            Name of database, 
-            by default os.environ.get('DW_DATABASE')
-        """
-        self.set_connector(
-            host = host,
-            user = user,
-            password = password,
-            database = database,
-        )
-        
-        
     #------------#
     # Properties #
     #------------------------------------------------------------------------#
     
     @property
-    def connector(self) -> mysql.connector:
+    def connector(self):
         return self.__connector
     
     #------------------------------------------------------------------------#
@@ -68,10 +35,11 @@ class MySQLDataWarehouse(BaseDataWarehouse):
     
     def set_connector(
             self, 
-            host: str, 
-            user: str, 
-            password: str, 
-            database: str,
+            host = os.environ.get('DB_HOST'), 
+            port = os.environ.get('DB_PORT'),
+            user = os.environ.get('DB_USERNAME'), 
+            password = os.environ.get('DB_PASSWORD'), 
+            database = os.environ.get('DB_NAME'),
     ) -> None:
         """Set the connector and cursor
 
@@ -87,15 +55,40 @@ class MySQLDataWarehouse(BaseDataWarehouse):
             Name of data base
         """
         # Init connector
-        self.__connector = mysql.connector.connect(
+        self.__connector = psycopg2.connect(
             host=host,
+            port=port,
             user=user,
             password=password,
-            database=database
+            database=database,
         )
         
         # Init cursor
         self.__cursor = self.__connector.cursor()
+        
+        print("Warehouse's connection is successful")
+        
+    #------------------------------------------------------------------------#
+    
+    def close_connection(self):
+        """Close the connection
+        """
+        if self.connector:
+            self.cursor.close()
+            self.connector.close()
+            print("Warehouse's connection is closed")
+    
+    #-----------#
+    # Decorator #
+    #------------------------------------------------------------------------#
+    
+    def connect_decorator(func):
+        def wrapper(self, *args, **kwargs):
+            self.set_connector()
+            result = func(self, *args, **kwargs)
+            self.close_connection()
+            return result
+        return wrapper
 
     #--------#
     # Method #
@@ -103,6 +96,7 @@ class MySQLDataWarehouse(BaseDataWarehouse):
     # SQL #
     #-----#
     
+    @connect_decorator
     def execute_sql_file(self, logger:logging, file_path: str) -> None:
         """Execute the query, return nothing if select
 
@@ -114,21 +108,27 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         queries = self.read_query_file(file_path)
 
         try:
-            # Execute each query
-            for query in queries:
+            with open(file_path, 'r') as file:
+                queries = file.read()
+
+            # Split the file contents into individual queries
+            individual_queries = queries.split(';')
+
+            # Execute each individual query
+            for query in individual_queries:
                 query = query.strip()
                 if query:
                     self.cursor.execute(query)
+                    self.connector.commit()
                     
-        except Error as e:
-            logger.error("Error while inserting data into MySQL:", e)
-            
-        finally:
-            self.cursor.close()
-            self.connector.close()
+            logger.info(f"Execute {file_path} is successfully")
+
+        except psycopg2.Error as e:
+            logger.error("Error while executing SQL file:", e)
         
     #------------------------------------------------------------------------#
     
+    @connect_decorator
     def select(self, logger: logging, file_path: str) -> pd.DataFrame:
         """Run query that select the data, fetch all data to data frame
 
@@ -142,9 +142,11 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         DataFrame
             Selected data
         """
+        df = pd.DataFrame()  # Initialize an empty DataFrame
+
         # Read queries
         queries = self.read_query_file(file_path)
-        
+
         try:
             # Execute each query
             for query in queries:
@@ -161,24 +163,23 @@ class MySQLDataWarehouse(BaseDataWarehouse):
             # Create pandas DataFrame
             df = pd.DataFrame(data, columns=column_names)
             
-        except Error as e:
-            logger.error("Error while inserting data into MySQL:", e)
-            
-        finally:
-            self.cursor.close()
-            self.connector.close()
+            logger.info(f"Select {file_path} is successfully")
+
+        except psycopg2.Error as e:
+            logger.error("Error while selecting data from PostgreSQL:", e)
 
         return df
     
     #------------------------------------------------------------------------#
     
+    @connect_decorator
     def insert_data(
             self, 
             table_name: str, 
             df: pd.DataFrame, 
             logger:logging,
     ) -> None:
-        """Insert data
+        """Insert data into the database
 
         Parameters
         ----------
@@ -189,28 +190,32 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         logger : logging
             Logger object
         """
-        # Get column names from the DataFrame
-        columns = ', '.join(df.columns.tolist())
-        
-        # Prepare the INSERT INTO statement with placeholders
-        placeholders = ', '.join(['%s'] * len(df.columns))
-        insert_query = \
-            f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        
-        # Iterate over each row in the DataFrame
-        for _, row in df.iterrows():
-            # Extract values from the row
-            values = tuple(row)
+        try:
+            # Get column names from the DataFrame
+            columns = ', '.join(df.columns.tolist())
             
-            # Execute the INSERT INTO statement
-            self.cursor.execute(insert_query, values)
+            # Prepare the INSERT INTO statement with placeholders
+            placeholder = ', '.join(['%s'] * len(df.columns))
+            insert_query = \
+                f"INSERT INTO {table_name} ({columns}) VALUES ({placeholder})"
+            
+            # Iterate over each row in the DataFrame
+            for _, row in df.iterrows():
+                # Extract values from the row
+                values = tuple(row)
+                
+                # Execute the INSERT INTO statement
+                self.cursor.execute(insert_query, values)
+            
+            # Commit the transaction
+            self.connector.commit()
+            logger.info(
+                "Data inserted successfully into PostgreSQL table: %s", 
+                table_name,
+            )
         
-        # Commit the transaction
-        self.connector.commit()
-        logger.info(
-            "Data inserted successfully into MySQL table:", 
-            table_name,
-        )
+        except psycopg2.Error as e:
+            logger.error("Error while inserting data into PostgreSQL:", e)
 
     #------------------------------------------------------------------------#
     # Insert #
@@ -238,33 +243,22 @@ class MySQLDataWarehouse(BaseDataWarehouse):
         """
         # List all file
         json_dir = os.listdir(json_dir_path)
-        
-        try:
-            # Iterate over json_dir
-            for json_path in json_dir:
-                
-                json_path = os.path.join(json_dir_path, json_path)
-                
-                # Read and modify data frame
-                df = self.modify_json_df(json_path, rename_dict)
-                
-                # Insert data
-                self.insert_data(
-                    table_name = table_name, 
-                    df = df, 
-                    logger = logger,
-                )
-        
-        except Error as e:
-            logger.error("Error while inserting data into MySQL:", e)
-            self.connector.rollback()
-            self.cursor.close()
-            self.connector.close()
-        
-        finally:
-            self.cursor.close()
-            self.connector.close()
-        
+
+        # Iterate over json_dir
+        for json_path in json_dir:
+            
+            json_path = os.path.join(json_dir_path, json_path)
+            
+            # Read and modify data frame
+            df = self.modify_json_df(json_path, rename_dict)
+            
+            # Insert data
+            self.insert_data(
+                table_name = table_name, 
+                df = df, 
+                logger = logger,
+            )
+
     #------------------------------------------------------------------------#
     
     @staticmethod
