@@ -22,7 +22,7 @@ s3 = S3DataLake(logger)
 """
 s3.upload_to_data_lake(
     s3_bucket = os.environ['BUCKET_RAW_DATA'],
-    prefix = f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/to_be_processed",
+    prefix = "journal/raw/raw_asset_data/to_be_processed",
     target_dir = "tmp_scrape",
 )
 """
@@ -32,10 +32,10 @@ s3.upload_to_data_lake(
 #-----------#
 
 raw_data__raw_target_prefix_to_be_processed = \
-    f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/to_be_processed/"
+    r"journal/raw/raw_asset_data/to_be_processed/"
 raw_data__raw_target_prefix_processing = \
-    f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/processing/"
-
+    r"journal/raw/raw_asset_data/processing/"
+"""
 s3.move_file(
         source_bucket = os.environ['BUCKET_RAW_DATA'],
         source_path = raw_data__raw_target_prefix_to_be_processed,
@@ -43,16 +43,15 @@ s3.move_file(
         destination_path = raw_data__raw_target_prefix_processing,
         logger = logger
     )
-
-
+"""
 #----------------------------------------------------------------------------#
 # Download file #
 #---------------#
-"""
+
 s3.download_file(
     bucket_name = os.environ['BUCKET_RAW_DATA'],
-    target_prefix = f"{os.environ['ENV_STATE']}/journal/raw/raw_asset_data/processing",
+    target_prefix = "journal/raw/raw_asset_data/processing",
     logger = logger
 )
-"""
+
 #----------------------------------------------------------------------------#

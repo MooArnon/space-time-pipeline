@@ -111,9 +111,6 @@ class S3DataLake(BaseDataLake):
             Target S3 bucket
         prefix : str
             Prefix that need to upload.
-            It will automatically add ENV_STATE prefix.
-            NO `/` at boundary 
-            ex. `data/raw` -> `dev/data/raw`
         target_dir : str, optional
             Target directory, it must be a flat folder with no sub dir
             by default None

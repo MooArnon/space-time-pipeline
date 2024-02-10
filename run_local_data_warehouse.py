@@ -8,7 +8,7 @@ import logging
 
 import pandas as pd
 
-from space_time_pipeline.data_warehouse import MySQLDataWarehouse
+from space_time_pipeline.data_warehouse import PostgreSQLDataWarehouse
 
 logger = logging.getLogger("TestDW")
 
@@ -40,18 +40,16 @@ rename_dict = {
     "engine": "engine_id"
 }
 
-sql = MySQLDataWarehouse(
-    host = os.environ.get('DB_HOST'),
-    user = os.environ.get('DB_USERNAME'),
-    password = os.environ.get('DB_PASSWORD'),
-    database = os.environ.get('DB_NAME'),
-)
-
+sql = PostgreSQLDataWarehouse()
+"""
 sql.iterative_read_insert_json(
-    json_dir_path = "tmp_scrape",
-    table_name = "staging__fact_raw_data",
+    json_dir_path = "tmp_download",
+    table_name = "staging.fact_raw_data",
     rename_dict = rename_dict,
     logger = logger
 )
+"""
+
+sql.execute_sql_file(logger=logger, file_path="run_local_data_warehouse.sql")
 
 #----------------------------------------------------------------------------#
