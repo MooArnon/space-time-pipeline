@@ -97,15 +97,27 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
     #-----#
     
     @connect_decorator
-    def execute_sql_file(self, logger:logging, file_path: str) -> None:
+    def execute_sql_file(
+            self, 
+            logger:logging, 
+            file_path: str, 
+            replace_condition_dict: dict = None,
+    ) -> None:
         """Execute the query, return nothing if select
 
         Parameters
         ----------
+        logger : logging
+            logging object
         file_path : str
             Path of .sql file
+        replace_condition_dict : dict
+            Replace dictionary
         """
-        queries = self.read_query_file(file_path)
+        queries = self.read_query_file(
+            file_path,
+            replace_condition_dict 
+        )
 
         try:
             with open(file_path, 'r') as file:
@@ -129,14 +141,23 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
     #------------------------------------------------------------------------#
     
     @connect_decorator
-    def select(self, logger: logging, file_path: str) -> pd.DataFrame:
+    def select(
+            self, 
+            logger: logging, 
+            file_path: str, 
+            replace_condition_dict: dict = None,
+    ) -> pd.DataFrame:
         """Run query that select the data, fetch all data to data frame
 
         Parameters
         ----------
+        logger : logging
+            logging object
         file_path : str
-            Path to .sql file
-
+            Path of .sql file
+        replace_condition_dict : dict
+            Replace dictionary
+            
         Returns
         -------
         DataFrame
@@ -145,7 +166,7 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
         df = pd.DataFrame()  # Initialize an empty DataFrame
 
         # Read queries
-        queries = self.read_query_file(file_path)
+        queries = self.read_query_file(file_path, replace_condition_dict)
 
         try:
             # Execute each query
