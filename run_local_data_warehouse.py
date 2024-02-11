@@ -16,13 +16,22 @@ logger = logging.getLogger("TestDW")
 # Select #
 #----------------------------------------------------------------------------#
 
-"""
-sql = MySQLDataWarehouse()
+change_name_dict = {
+    "ASSETS":"'BTCUSDT'",
+    "LIMIT": "5",
+    "UPPER_DATE": "2024-02-01"
+}
 
-data = sql.select("run_local_data_warehouse.sql")
+sql = PostgreSQLDataWarehouse()
+
+data = sql.select(
+    logger = logger,
+    file_path = "run_local_data_warehouse.sql",
+    replace_condition_dict = change_name_dict
+)
 
 print(data.head(10))
-"""
+
 
 #----------------------------------------------------------------------------#
 
@@ -33,7 +42,7 @@ data = sql.execute_sql_file("run_local_data_warehouse.sql")
 """
 
 #----------------------------------------------------------------------------#
-
+"""
 rename_dict = {
     "timestamp": "scraped_timestamp",
     "source": "source_id",
@@ -48,7 +57,7 @@ sql.iterative_read_insert_json(
     rename_dict = rename_dict,
     logger = logger
 )
-
+"""
 """
 sql.execute_sql_file(logger=logger, file_path="run_local_data_warehouse.sql")
 """

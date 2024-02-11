@@ -49,13 +49,21 @@ class BaseDataWarehouse:
     #------------------------------------------------------------------------#
     
     @staticmethod
-    def read_query_file(file_path: str) -> list[str]:
+    def read_query_file(
+            file_path: str,
+            replace_condition_dict: dict = None,
+    ) -> list[str]:
         """Read .sql file and convert to text
 
         Parameters
         ----------
         file_path : str
             Target path
+        replace_condition_dict : dict
+            Keep the replacing dict
+            {
+                "VALUE_IN_SQL": "value-to-replace"
+            }
 
         Returns
         -------
@@ -65,6 +73,11 @@ class BaseDataWarehouse:
         # Read the SQL file
         with open(file_path, 'r') as sql_file:
             sql_queries = sql_file.read()
+        
+        if replace_condition_dict:
+            for key, value in replace_condition_dict.items():
+                placeholder = f'{key}'
+                sql_queries = sql_queries.replace(placeholder, str(value))
 
         # Split the queries (assuming they are separated by ';')
         queries = sql_queries.split(';')
