@@ -118,16 +118,11 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
             file_path,
             replace_condition_dict 
         )
-
+        
         try:
-            with open(file_path, 'r') as file:
-                queries = file.read()
-
-            # Split the file contents into individual queries
-            individual_queries = queries.split(';')
 
             # Execute each individual query
-            for query in individual_queries:
+            for query in queries:
                 query = query.strip()
                 if query:
                     self.cursor.execute(query)

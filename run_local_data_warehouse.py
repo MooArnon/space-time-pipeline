@@ -21,7 +21,7 @@ change_name_dict = {
     "LIMIT": "5",
     "UPPER_DATE": "2024-02-01"
 }
-
+"""
 sql = PostgreSQLDataWarehouse()
 
 data = sql.select(
@@ -31,15 +31,23 @@ data = sql.select(
 )
 
 print(data.head(10))
-
+"""
 
 #----------------------------------------------------------------------------#
 
-"""
-sql = MySQLDataWarehouse()
 
-data = sql.execute_sql_file("run_local_data_warehouse.sql")
-"""
+sql = PostgreSQLDataWarehouse()
+change_name_dict = {
+    "ASSETS":"'BTCUSDT'",
+    "LIMIT": "5",
+    "UPPER_DATE": "2024-02-01"
+}
+data = sql.execute_sql_file(
+    logger = logger,
+    file_path = "run_local_data_warehouse.sql",
+    replace_condition_dict = change_name_dict
+)
+
 
 #----------------------------------------------------------------------------#
 """
