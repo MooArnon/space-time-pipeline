@@ -132,6 +132,7 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
 
         except psycopg2.Error as e:
             logger.error("Error while executing SQL file:", e)
+            raise SystemError(e)
         
     #------------------------------------------------------------------------#
     
@@ -183,6 +184,7 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
 
         except psycopg2.Error as e:
             logger.error("Error while selecting data from PostgreSQL:", e)
+            raise SystemError(e)
 
         return df
     
@@ -232,6 +234,7 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
         
         except psycopg2.Error as e:
             logger.error("Error while inserting data into PostgreSQL:", e)
+            raise SystemError(e)
 
     #------------------------------------------------------------------------#
     # Insert #
