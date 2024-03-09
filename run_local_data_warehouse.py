@@ -47,7 +47,7 @@ data = sql.execute_sql_file(
     file_path = "run_local_data_warehouse.sql",
     replace_condition_dict = change_name_dict
 )
-
+print(data)
 
 #----------------------------------------------------------------------------#
 """
