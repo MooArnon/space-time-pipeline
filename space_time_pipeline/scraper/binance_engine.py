@@ -26,6 +26,10 @@ class BinanceScraper(BaseScraper):
         key : str, optional
             The key for create the request, by default 
             "https://api.binance.com/api/v3/ticker/price?symbol="
+        
+        Notes
+        -----
+            "https://fapi.binance.com/fapi/v1/ticker/price?symbol="
         """
         super().__init__()
         
