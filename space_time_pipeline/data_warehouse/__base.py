@@ -85,5 +85,37 @@ class BaseDataWarehouse:
         return queries
     
     #------------------------------------------------------------------------#
+    @staticmethod
+    def construct_conditional_query(
+        statement: str,
+        condition_lst: list[str],
+    ) -> str:
+        """Adding where into query statement
+
+        Parameters
+        ----------
+        statement : str
+            Query statement
+        condition_lst : list[str]
+            List of conditional element,
+            ex. ["DATE = '2023-01-04'", "ASSET = 'BTCUSDT'"]
+
+        Returns
+        -------
+        str
+            Statement with added where cause.
+        """
+        
+        for idx, condition in enumerate(condition_lst):
+            
+            if idx == 0:
+                statement += f' WHERE {condition}'
+            
+            else:
+                statement += f' AND {condition}'
+                
+        return statement
+    
+    #------------------------------------------------------------------------#
     
 #----------------------------------------------------------------------------#
