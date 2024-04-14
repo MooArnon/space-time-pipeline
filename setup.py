@@ -8,7 +8,7 @@ import os
 # Variable #
 ##############################################################################
 
-__version__ = 0.1
+__version__ = 0.2
 __author__ = "Arnon Phongsiang" 
 __email__ = "arnon.phongsiang@gmail.com"
 __github__ = "https://github.com/MooArnon"

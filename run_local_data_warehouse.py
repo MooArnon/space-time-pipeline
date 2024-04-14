@@ -16,6 +16,9 @@ from space_time_pipeline.data_warehouse import (
 
 logger = logging.getLogger("TestDW")
 
+postgresql = PostgreSQLDataWarehouse()
+mysql = MySQLDataWarehouse()
+
 ##########
 # Select #
 ##############################################################################
@@ -80,8 +83,6 @@ sql.execute_sql_file(logger=logger, file_path="run_local_data_warehouse.sql")
 ##############################################################################
 
 """
-postgresql = PostgreSQLDataWarehouse()
-mysql = MySQLDataWarehouse()
 
 data = postgresql.select(
     logger = logger,
@@ -104,9 +105,9 @@ finally:
     mysql.close_connection()
 """
 
+##############################################################################
+"""
 table_name = "aggregated_classifier_voted_evaluation"
-postgresql = PostgreSQLDataWarehouse()
-mysql = MySQLDataWarehouse()
 
 data = postgresql.select(
     logger = logger,
@@ -125,5 +126,24 @@ mysql.delete_insert_data(
         "scraped_timestamp < '2024-03-12 00:00:00'",
     ],
 )
-
 print("Data inserted successfully into MySQL table")
+"""
+##############################################################################
+
+df = postgresql.execute_query(
+    """
+    select 
+        id
+        ,asset
+        ,scraped_timestamp
+        ,price
+        ,scraped_timestamp at time zone 'utc' at time zone 'asia/bangkok'
+    from warehouse.fact_raw_data
+    where asset = 'BTCUSDT'
+    order by id desc
+    limit 2000
+    ;
+    """ 
+)
+
+print(df.head(10))

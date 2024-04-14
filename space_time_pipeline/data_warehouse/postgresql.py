@@ -127,13 +127,13 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
                 if query:
                     self.cursor.execute(query)
                     self.connector.commit()
-                    
+                
             logger.info(f"Execute {file_path} is successfully")
 
         except psycopg2.Error as e:
             logger.error("Error while executing SQL file:", e)
             raise SystemError(e)
-        
+    
     ##########################################################################
     
     @connect_decorator
@@ -187,6 +187,46 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
             raise SystemError(e)
 
         return df
+    
+    ##########################################################################
+    
+    @connect_decorator
+    def execute_query(self, query: str) -> pd.DataFrame:
+        """Execute query and return the pandas dataframe
+
+        Parameters
+        ----------
+        query : str
+            Query statement
+
+        Returns
+        -------
+        DataFrame
+            Pandas dataframe
+
+        Raises
+        ------
+        SystemError
+            If execute query failed
+        """
+        
+        self.cursor.execute(query)
+        
+        try:
+            # Fetch the data
+            data = self.cursor.fetchall()
+
+            # Get column names
+            column_names = [desc[0] for desc in self.cursor.description]
+
+            # Create pandas DataFrame
+            df = pd.DataFrame(data, columns=column_names)
+            
+            return df
+        
+        except psycopg2.Error as e:
+            print("Error while selecting data from PostgreSQL:", e)
+            raise SystemError(e)
     
     ##########################################################################
     
