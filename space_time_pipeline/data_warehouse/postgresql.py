@@ -124,7 +124,9 @@ class PostgreSQLDataWarehouse(BaseDataWarehouse):
             # Execute each individual query
             for query in queries:
                 query = query.strip()
-                if query:
+                if query == "":
+                    pass
+                elif query:
                     self.cursor.execute(query)
                     self.connector.commit()
                 
