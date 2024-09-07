@@ -22,7 +22,7 @@ s3_path_tmp = f"{s3_path}_tmp"
 with open("data/btc.json", encoding="utf-8") as file:
     data = json.load(file)['btc']
 
-df = pd.DataFrame(data).head(1000)
+df = pd.DataFrame(data).head(10)
 
 partition_columns = ["asset", "scraped_date"]
 data_schema = {
