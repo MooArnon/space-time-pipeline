@@ -2,8 +2,10 @@
 # Import #
 ##############################################################################
 
-import awswrangler as wr
 from logging import Logger
+
+import awswrangler as wr
+import boto3
 import pandas as pd
 
 from .__base import BaseDataLakeHouse
@@ -97,5 +99,55 @@ class Athena(BaseDataLakeHouse):
             self.logger.info(f"Finished batch {i+1}/{batch_length}")
     
     ##########################################################################
+    
+    def select(
+            self,
+            replace_condition_dict: dict,
+            database: str,
+            query: str = None,
+            query_file_path: str = None,
+    ) -> dict:
+        """Select data from Athena iceberg
+
+        Parameters
+        ----------
+        replace_condition_dict : dict
+            Filter dict, eg {<'LIMIT'>: 10}
+        database : str
+            Name of data in glue
+        query : str, optional
+            Query statement, by default None
+        query_file_path : str, optional
+            Path to .sql file, by default None
+
+        Returns
+        -------
+        dict
+            Dictionary of data, convert to data by using pd.DataFrame(data)
+
+        Raises
+        ------
+        ValueError
+            When no Limit was found at replace_condition_dict.
+            To minimize cost per quey.
+        """
+        # If limit does not appeared at replace_condition_dict
+        # Raise error to prevent cost charged on account.
+        if '<LIMIT>' not in replace_condition_dict:
+            raise ValueError(
+                "The 'LIMIT' condition is missing in the replace_condition_dict."
+            )
+        
+        query = self.read_query_file(
+            query = query,
+            query_file_path = query_file_path,
+            replace_condition_dict = replace_condition_dict,
+        )
+
+        return wr.athena.read_sql_query(
+            sql=query, 
+            database=database,
+            keep_files=False
+        ).to_dict()
     
 ##############################################################################

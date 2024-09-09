@@ -39,6 +39,8 @@ data_schema = {
 ##############################################################################
 
 athena = Athena(logger = logger)
+
+"""
 athena.insert_to_table(
     df = df,
     data_schema = data_schema,
@@ -46,5 +48,19 @@ athena.insert_to_table(
     partition_columns = partition_columns,
     s3_path = s3_path,
 )
+"""
 
+data = athena.select(
+    replace_condition_dict = {
+        "<ASSET>": "BTCUSDT", 
+        "<LOWER_TIMESTAMP_BOUNDARY>": "2024-09-09 00:07:28",
+        "<LIMIT>": 10,
+    },
+    database = "warehouse",
+    query_file_path = "run_local_data_lake_house.sql",
+    
+)
+
+data = pd.DataFrame(data)
+print(data)
 ##############################################################################
