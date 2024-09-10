@@ -139,21 +139,23 @@ class S3DataLake(BaseDataLake):
             # Iterate over file
             # Also construct the target_file
             for file in file_in_dir:
-                self.upload_file(
+                response = self.upload_file(
                     s3 = self.s3_client, 
                     s3_bucket = s3_bucket,
                     prefix = prefix, 
                     target_file = os.path.join(target_dir, file)
                 )
+            return response
         
         # Upload the single file
         elif target_file:
-            self.upload_file(
+            response = self.upload_file(
                 s3 = self.s3_client, 
                 s3_bucket = s3_bucket, 
                 prefix = prefix, 
                 target_file = target_file
             )
+            return response
     
     ##########################################################################
     
@@ -191,9 +193,10 @@ class S3DataLake(BaseDataLake):
         # Upload the file to S3
         # Also remove the file
         try:
-            s3.upload_file(target_file, s3_bucket, prefix_path)
+            response = s3.upload_file(target_file, s3_bucket, prefix_path)
             os.remove(target_file)
             self.logger.info(f"Uploaded {prefix_path} successfully!")
+            return response
             
         # Raise error
         except Exception as e:
