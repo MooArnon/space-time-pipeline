@@ -66,11 +66,7 @@ class S3DataLake(BaseDataLake):
         secret_key : str
             secret_key
         """
-        self.__s3_client = boto3.client(
-            's3',
-            aws_access_key_id = access_key, 
-            aws_secret_access_key = secret_key
-        )
+        self.__s3_client = boto3.client('s3')
         
     ##########################################################################
     
