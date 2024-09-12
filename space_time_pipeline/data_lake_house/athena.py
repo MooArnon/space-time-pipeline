@@ -3,6 +3,7 @@
 ##############################################################################
 
 from logging import Logger
+import time
 
 import awswrangler as wr
 import boto3
@@ -59,7 +60,7 @@ class Athena(BaseDataLakeHouse):
         """
         if not s3_path_tmp:
             s3_path_tmp = f"{s3_path}_tmp"
-        
+        print(data_schema)
         # Confirm that we will have the same type as IceBerg
         df = df.astype(data_schema)
         self.logger.info(f"Shape of data frame is {df.shape}")
@@ -84,7 +85,8 @@ class Athena(BaseDataLakeHouse):
                 )
             ]
             self.logger.info(f"Shape of batch is {batch_df.shape}")
-            
+            print(df.head(5))
+            print(df.dtypes)
             # Add to data frame
             wr.athena.to_iceberg(
                 df=batch_df,
@@ -149,5 +151,187 @@ class Athena(BaseDataLakeHouse):
             database=database,
             keep_files=False
         ).to_dict()
+        
+    ##########################################################################
+    
+    def delete_data(
+        self, 
+        table_name: str,
+        database: str,
+        output_location: str,
+        logger: str
+    ) -> None:
+        """Delete data at table
+
+        Parameters
+        ----------
+        table_name : str
+            Name of target table you need to delete
+        database : str
+            Database name
+        output_location : str
+            Location to save output
+        logger : str
+            Logger object
+        """
+        client = boto3.client('athena')
+        
+        self.execute_athena_query(
+            client=client,
+            query=f"DELETE FROM {table_name}",
+            database=database,
+            output_location=output_location,
+            logger=logger,
+        )
+        logger.info(f"Deleted data at table {table_name}")
+    
+    ##########################################################################
+    
+    #TODO create method to execute query and measure data scanned
+    def aggregate_to_table(
+            self,
+            replace_condition_dict: dict,
+            database: str,
+            output_location: str,
+            mode: str,
+            logger: Logger,
+            query: str = None,
+            query_file_path: str = None,
+            table_name: str = None,
+    ) -> None:
+        client = boto3.client('athena')
+        
+        query = self.read_query_file(
+            query = query,
+            query_file_path = query_file_path,
+            replace_condition_dict = replace_condition_dict,
+        )
+        
+        # Perform delete
+        if (mode == "delete_insert") & (table_name is not None):
+            self.execute_athena_query(
+                client=client,
+                query=f"DELETE FROM {table_name}",
+                database=database,
+                output_location=output_location,
+                logger=logger,
+            )
+        
+        # Execute query
+        runtime_sec, data_scanned_mb = self.execute_athena_query(
+            client = client,
+            query = query,
+            database = database,
+            output_location = output_location,
+            logger = logger,
+        )
+        
+        return runtime_sec, data_scanned_mb
+    
+    ##########################################################################
+    
+    def execute_athena_query(
+            self,
+            client: boto3.client,
+            query: str,
+            database: str, 
+            output_location: str,
+            logger: Logger,
+    ) -> tuple[float, float]:
+        """Execute query at Athena, without waiting
+
+        Parameters
+        ----------
+        client : boto3.client
+            Athena client
+        query : str
+            Query statement
+        database : str
+            Name of database
+        output_location : str
+            Location to store temp output
+            in the format of `s3://path/to/query/bucket/`
+
+        Returns
+        -------
+        tuple[float, float]
+            runtime_sec, data_scanned_mb
+        """
+        response = client.start_query_execution(
+            QueryString=query,
+            QueryExecutionContext={
+                'Database': database
+            },
+            ResultConfiguration={
+                'OutputLocation': output_location, # S3 bucket to store results
+            }
+        )
+        runtime_sec, data_scanned_mb = self.wait_for_query_to_complete(
+            client = client,
+            query_execution_id = response['QueryExecutionId'],
+            logger = logger
+        )
+        return runtime_sec, data_scanned_mb
+    
+    ##########################################################################
+    
+    @staticmethod
+    def wait_for_query_to_complete(
+            client: boto3, 
+            query_execution_id: str,
+            logger: Logger,
+    ) -> tuple[float, float]:
+        """Check the status of query and wait 'till it's done
+
+        Parameters
+        ----------
+        client : boto3
+            Athena client
+        query_execution_id : str
+            Query's id from `start_query_execution`
+        logger : Logger
+            Logger object
+
+        Returns
+        -------
+        tuple[float, float]
+            runtime_sec, data_scanned_mb
+
+        Raises
+        ------
+        SystemError
+            If status is `FAILED` and `CANCELLED`
+        """
+        # While util FAILED, CANCELLED or SUCCEEDED status
+        while True:
+            response = client.get_query_execution(
+                QueryExecutionId=query_execution_id
+            )
+            status = response['QueryExecution']['Status']['State']
+            
+            if status == 'SUCCEEDED':
+                logger.info("Query succeeded!")
+                # Extract runtime and data scanned
+                query_stats = response['QueryExecution']['Statistics']
+                runtime_ms = query_stats['EngineExecutionTimeInMillis']  
+                data_scanned_bytes = query_stats['DataScannedInBytes']  
+                
+                # Convert runtime to seconds and data scanned to MB
+                runtime_sec = runtime_ms / 1000.0
+                data_scanned_mb = data_scanned_bytes / (1024 * 1024)
+                return runtime_sec, data_scanned_mb
+            
+            # If error or cancel raise error
+            elif status == 'FAILED':
+                raise SystemError("Query failed!")
+            elif status == 'CANCELLED':
+                raise SystemError("Query was cancelled!")
+
+            # Wait for next status
+            else:
+                logger.info("Query is still running, waiting...")
+                time.sleep(5)
+    
+    ##########################################################################
     
 ##############################################################################

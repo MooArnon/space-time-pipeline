@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pandas as pd
 import json
 import logging
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 ###########
 # Statics #
 ##############################################################################
-
+"""
 table_name = "fact_raw_data"
 bucket_name = "space-time-lake-house"
 
@@ -38,9 +40,7 @@ data_schema = {
 
 ##############################################################################
 
-athena = Athena(logger = logger)
 
-"""
 athena.insert_to_table(
     df = df,
     data_schema = data_schema,
@@ -50,17 +50,42 @@ athena.insert_to_table(
 )
 """
 
+##############################################################################
+
+data_schema = {
+    "model_type": "string",
+    "asset": "string",
+    "corrected_prediction": "int32",
+    "total_predicted": "int32",
+    "accuracy": "float32" ,
+    "weight": "float32" ,
+}
+
+partition_columns = ["asset"]
+table_name = "aggregated_classifier_weight"
+bucket_name = "space-time-lake-house"
+s3_path = f"s3://{bucket_name}/{table_name}"
+
+athena = Athena(logger = logger)
+
 data = athena.select(
     replace_condition_dict = {
         "<ASSET>": "BTCUSDT", 
-        "<LOWER_TIMESTAMP_BOUNDARY>": "2024-09-09 00:07:28",
-        "<LIMIT>": 10,
+        "<NUMBER_LOOK_BACK_DATE>": "1",
+        "<EVALUATION_RANGE>": 15,
+        "<LIMIT>": 1000
     },
     database = "warehouse",
     query_file_path = "run_local_data_lake_house.sql",
-    
 )
 
 data = pd.DataFrame(data)
-print(data)
+
+athena.insert_to_table(
+    df = data,
+    data_schema = data_schema,
+    table_name = table_name,
+    partition_columns = partition_columns,
+    s3_path = s3_path,
+)
 ##############################################################################
