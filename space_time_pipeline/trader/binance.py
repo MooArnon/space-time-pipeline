@@ -36,6 +36,8 @@ class BinanceTrader(BaseTrader):
                 level=logging.INFO,
                 format='%(asctime)s - %(levelname)s - %(message)s'
             )
+        if logger:
+            self.logger = logger
     
     ##############
     # Properties #
