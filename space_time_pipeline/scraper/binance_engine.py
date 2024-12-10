@@ -7,6 +7,8 @@ import os
 import json
 import requests 
 
+import pandas as pd
+
 from .__base import BaseScraper
 
 ###########
@@ -30,6 +32,7 @@ class BinanceScraper(BaseScraper):
         Notes
         -----
             "https://fapi.binance.com/fapi/v1/ticker/price?symbol="
+            for detailed scrape "https://fapi.binance.com/fapi/v1/klines"
         """
         super().__init__()
         
@@ -109,6 +112,72 @@ class BinanceScraper(BaseScraper):
         # delete result, prevent memory leak
         del scraped_result
     
+    ##########################################################################
+    
+    def detail_scrape_to_pd(
+            self, 
+            assets: list[str],
+            params: dict,
+            columns: list[str],
+            column_type: dict
+    ) -> pd.DataFrame:
+        """Scrape the data, validate types, and return as DataFrame.
+
+        Parameters
+        ----------
+        assets : list[str]
+            List of assets in Binance symbol format.
+        params : dict
+            Parameters for the API request.
+        columns : list[str]
+            Expected column names for the DataFrame.
+        column_type : dict
+            Expected types for each column.
+
+        Returns
+        -------
+        pd.DataFrame
+            A concatenated DataFrame containing data for all assets.
+        """
+        all_dataframes = []  # List to store DataFrames for each asset
+        
+        for asset in assets:
+            try:
+                # Update params with the current asset symbol
+                params['symbol'] = asset
+
+                # Make the API request
+                response = requests.get(self.key, params=params)
+                response.raise_for_status()  # Ensure no HTTP errors
+                data = response.json()
+
+                # Convert data to DataFrame
+                df = pd.DataFrame(data, columns=columns)
+
+                # Enforce data types
+                for col, dtype in column_type.items():
+                    try:
+                        df[col] = df[col].astype(dtype)
+                    except ValueError as e:
+                        raise ValueError(f"Type conversion failed for column '{col}': {e}")
+
+                # Add metadata columns
+                timestamp = datetime.utcnow()
+                df['scraped_time'] = timestamp
+                df['asset'] = asset
+
+                # Append to the list of DataFrames
+                all_dataframes.append(df)
+
+            except Exception as e:
+                print(f"Error processing asset {asset}: {e}")
+
+        # Combine all DataFrames into one
+        if all_dataframes:
+            final_df = pd.concat(all_dataframes, ignore_index=True)
+            return final_df
+        else:
+            return pd.DataFrame()
     #############
     # Utilities #
     ##########################################################################
@@ -152,6 +221,12 @@ class BinanceScraper(BaseScraper):
         # Save
         with open(export_path, "w") as json_file:
             json.dump(object, json_file, indent=4)
+    
+    ##########################################################################
+    
+    @staticmethod
+    def generate_fingerprint(row):
+        return [type(x).__name__ for x in row]
     
     ##########################################################################
 
