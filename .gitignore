@@ -163,3 +163,5 @@ credential/
 credential*
 tmp_*
 data/
+
+set_env.sh

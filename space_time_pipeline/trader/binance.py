@@ -303,11 +303,11 @@ class BinanceTrader(BaseTrader):
     ##########################################################################
     
     def check_and_create_stop_loss(
-        self,
-        symbol: str,
-        stop_loss_percent: int = 0.01,
-        max_stop_loss_percent: int = 15,
-        leverage: int = 20,
+            self,
+            symbol: str,
+            stop_loss_percent: int = 0.01,
+            max_stop_loss_percent: int = 15,
+            leverage: int = 20,
     ) -> None:
         """
         Check open positions and add stop loss
@@ -425,6 +425,61 @@ class BinanceTrader(BaseTrader):
         except Exception as e:
             self.logger.error(f"Unexpected error: {e}")
             traceback.print_exc()
+
+    ##########################################################################
+    
+    def check_position_opening(
+            self,
+            symbol: str,
+    ) -> dict:
+        """
+        Check open positions and add stop loss
+
+        Parameters
+        ----------
+        symbol : str
+            Target symbol
+        stop_loss_percent : int
+            Initial percentage of stop loss threshold, default is 5
+        max_stop_loss_percent : int
+            Maximum percentage for stop loss, default is 15 
+            (to prevent endless loop)
+        leverage: int 
+            default is 20
+        """
+        # Get the current position for the symbol
+        positions_info = self.client.futures_position_information()
+        position_amt = 0.0
+        entry_price = 0.0
+
+        # Loop over positions to find the symbol
+        for position in positions_info:
+            if position['symbol'] == symbol:
+                position_amt = float(position['positionAmt'])
+                entry_price = float(position['entryPrice'])
+                position = position
+                break
+
+        # If no open position, exit the function
+        if position_amt == 0.0:
+            self.logger.info(f"No open position for {symbol}")
+            return
+
+        self.logger.info(
+            f"Open position for {symbol}: {position_amt} at entry price {entry_price}"
+        )
+        
+        if position_amt > 0:
+            position = "LONG"
+        elif position_amt < 0:
+            position = 'SHORT'
+        elif position_amt == 0:
+            position = 'HOLD'
+        else:
+            self.logger.info(f"Position is wrong with position_amt = {position_amt}")
+            raise SystemError
+        
+        return position
 
     ##########################################################################
     
