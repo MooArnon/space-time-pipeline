@@ -4,6 +4,8 @@
 
 from space_time_pipeline.trader.binance import BinanceTrader
 
+import time 
+
 ##############################################################################
 
 trader = BinanceTrader()
@@ -31,6 +33,13 @@ trader.check_and_create_stop_loss(
     max_stop_loss_percent = 15,
 )
 """
-
+"""
 position = trader.check_position_opening(symbol="BTCUSDT")
 print(position)
+"""
+
+# Pseudocode
+while True:
+    
+    trader.update_dynamic_stop_loss("BTCUSDT")
+    time.sleep(15)
