@@ -43,7 +43,6 @@ class BinanceTrader(BaseTrader):
     # Properties #
     ##########################################################################
     
-    @property
     def get_leverage(self, symbol: str) -> int:
         try:
             response = self.client.futures_position_information(symbol=symbol)
@@ -154,7 +153,7 @@ class BinanceTrader(BaseTrader):
         # Delay 5 second to ensure the respond from server
         self.cancel_all_open_orders(symbol)
         self.close_all_positions(symbol)
-        time.sleep(5)
+        time.sleep(3)
         
         try:
             if position_type not in ('LONG', 'SHORT'):
@@ -302,6 +301,214 @@ class BinanceTrader(BaseTrader):
     
     ##########################################################################
     
+    def update_dynamic_stop_loss(
+        self,
+        symbol: str,
+        trailing_levels: list = [
+            (3, 1.5), 
+            (5, 3),
+            (7, 4.5),
+            (9, 6),
+            (11, 7.5),
+            (15, 10),
+            (20, 15),
+            (25, 20),
+            (30, 25),
+            (40, 35),
+            (50, 45),
+            (60, 55),
+            (70, 65),
+            (80, 75),
+            (90, 85),
+        ]
+    ) -> None:
+        """
+        Dynamically adjust stop-loss based on current unrealized profit thresholds.
+        
+        If an existing stop-loss is already set within the correct range (within tolerance),
+        then no new stop-loss order is created.
+
+        Parameters
+        ----------
+        symbol : str
+            Futures symbol (e.g., "BTCUSDT")
+        trailing_levels : list of (float, float)
+            Pairs of (profit_threshold%, new_stop_loss%), e.g. [(3, 1.5), (5, 3)] means:
+                - If position is +3% in profit, move stop-loss to +1.5%
+                - If position is +5% in profit, move stop-loss to +3%
+        """
+        try:
+            # 1. Get position info
+            position_info = self.client.futures_position_information(symbol=symbol)[0]
+            roi = self.get_roi(symbol, position_info)  # ROI is returned in percentage
+
+            position_amt = float(position_info['positionAmt'])
+            entry_price = float(position_info['entryPrice'])
+
+            # If no open position or entry_price is 0, do nothing
+            if position_amt == 0.0 or entry_price == 0.0:
+                self.logger.info(f"No open position for {symbol} or entry_price=0.")
+                return
+
+            # 2. Determine if LONG or SHORT
+            side = "LONG" if position_amt > 0 else "SHORT"
+
+            # 3. Get current mark price for logging
+            mark_price_data = self.client.futures_mark_price(symbol=symbol)
+            mark_price = float(mark_price_data['markPrice'])
+
+            # Use roi as the current profit percentage
+            profit_pct = roi  # already in %
+
+            self.logger.info(
+                f"Position side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
+                f"Unrealized PnL% ~ {profit_pct:.2f}"
+            )
+
+            if profit_pct <= 0:
+                self.logger.info("Currently not in profit, skipping trailing stop update.")
+                return
+
+            # 4. Check open orders for an existing stop-loss order
+            open_orders = self.client.futures_get_open_orders(symbol=symbol)
+            current_sl_order = None
+            for order in open_orders:
+                if order.get('type') in ['STOP_MARKET', 'STOP']:
+                    current_sl_order = order
+                    break
+
+            # 5. Determine which trailing level to trigger
+            trailing_levels_sorted = sorted(trailing_levels, key=lambda x: x[0])
+            triggered_level = None
+            
+            for (profit_trigger, stop_loss_level) in trailing_levels_sorted:
+
+                if profit_pct >= profit_trigger:
+                    triggered_level = (profit_trigger, stop_loss_level)
+                else:
+                    break
+
+            if not triggered_level:
+                self.logger.info(
+                    f"Current profit {profit_pct:.2f}% has not reached the lowest threshold "
+                    f"{trailing_levels_sorted[0][0]}%."
+                )
+                return
+
+            # 6. Compute the new stop-loss price based on the triggered trailing level.
+            stop_loss_target = triggered_level[1]  # in percent
+            if side == "LONG":
+                # For LONG: new_sl_price = entry_price * (1 + (stop_loss_target/100))
+                new_sl_price = entry_price * (1 + (stop_loss_target / 100 / self.get_leverage(symbol)))
+            else:
+                # For SHORT: new_sl_price = entry_price * (1 - (stop_loss_target/100))
+                new_sl_price = entry_price * (1 - (stop_loss_target / 100 / self.get_leverage(symbol)))
+            
+            # 7. Round to precision (assuming you have a function to do so)
+            new_sl_price = self.round_down_to_precision(new_sl_price)
+
+            self.logger.info(
+                f"Triggered level {triggered_level[0]}% => Adjusting stop-loss to lock in "
+                f"{triggered_level[1]}% profit. New SL Price ~ {new_sl_price}"
+            )
+
+            # 8. If an existing SL order is already within the correct range, do nothing.
+            tolerance = 0.0001  # Adjust tolerance based on the precision of your asset
+            if current_sl_order:
+                current_sl_price = float(current_sl_order.get('stopPrice', 0))
+                if abs(current_sl_price - new_sl_price) < tolerance:
+                    self.logger.info(
+                        f"Existing stop-loss order at {current_sl_price} is within tolerance of new SL {new_sl_price}. "
+                        "No update necessary."
+                    )
+                    return
+
+            # 9. Cancel any existing stop-loss order
+            if current_sl_order:
+                try:
+                    cancel_response = self.client.futures_cancel_order(
+                        symbol=symbol,
+                        orderId=current_sl_order['orderId']
+                    )
+                    self.logger.info(f"Canceled existing stop-loss order: {cancel_response}")
+                except BinanceAPIException as e:
+                    self.logger.warning(f"Could not cancel existing stop-loss order: {e}")
+
+            # 10. Place the updated stop-loss order.
+            # For a LONG position, the stop-loss order side is SELL;
+            # for a SHORT position, it is BUY.
+            sl_side = Client.SIDE_SELL if side == "LONG" else Client.SIDE_BUY
+            try:
+                position_size = abs(position_amt)
+                new_stop_loss_order = self.client.futures_create_order(
+                    symbol=symbol,
+                    side=sl_side,
+                    type=Client.FUTURE_ORDER_TYPE_STOP_MARKET,
+                    stopPrice=new_sl_price,
+                    quantity=position_size,
+                    reduceOnly=True,
+                    timeInForce=Client.TIME_IN_FORCE_GTC
+                )
+                self.logger.info(f"Updated stop-loss order placed: {new_stop_loss_order}")
+            except BinanceAPIException as e:
+                self.check_and_create_stop_loss(symbol=symbol)
+                if "Order would immediately trigger" in str(e):
+                    self.logger.error(
+                        f"Stop-loss at {new_sl_price} is too close or above current price. "
+                        "Consider adjusting thresholds or handling with incremental logic."
+                    )
+                else:
+                    self.logger.error(f"Error placing updated stop-loss: {e}")
+                traceback.print_exc()
+        except Exception as e:
+            self.logger.error(f"Unexpected error placing new stop-loss: {e}")
+            self.check_and_create_stop_loss(symbol=symbol)
+            traceback.print_exc()
+
+    ##########################################################################
+    
+    def get_roi(self, symbol: str, position_info: dict) -> float:
+        """
+        Calculate the percentage ROI for the open futures position on the given symbol.
+
+        For a LONG position:
+        ROI = ((mark_price - entry_price) / entry_price) * 100
+        For a SHORT position:
+        ROI = ((entry_price - mark_price) / entry_price) * 100
+
+        Parameters
+        ----------
+        symbol : str
+            Futures symbol (e.g., "BTCUSDT")
+
+        Returns
+        -------
+        float
+            The ROI in percentage. Returns 0.0 if there is no open position.
+        """
+        # Fetch current position details for the symbol
+        position_amt = float(position_info['positionAmt'])
+        entry_price = float(position_info['entryPrice'])
+        leverage = self.get_leverage(symbol=symbol)
+        
+        # If there's no open position, return 0.0 ROI
+        if position_amt == 0 or entry_price == 0:
+            return 0.0
+
+        # Get the current mark price
+        mark_price_data = self.client.futures_mark_price(symbol=symbol)
+        mark_price = float(mark_price_data['markPrice'])
+
+        # Calculate ROI based on the position side
+        if position_amt > 0:  # LONG position
+            roi = leverage * (mark_price - entry_price) / entry_price * 100
+        else:  # SHORT position
+            roi = leverage * (entry_price - mark_price) / entry_price * 100
+
+        return roi
+
+    ##########################################################################
+    
     def check_and_create_stop_loss(
             self,
             symbol: str,
@@ -326,16 +533,12 @@ class BinanceTrader(BaseTrader):
         """
         try:
             # Get the current position for the symbol
-            positions_info = self.client.futures_position_information()
+            positions_info = self.client.futures_position_information(symbol=symbol)[0]
             position_amt = 0.0
             entry_price = 0.0
 
-            # Loop over positions to find the symbol
-            for position in positions_info:
-                if position['symbol'] == symbol:
-                    position_amt = float(position['positionAmt'])
-                    entry_price = float(position['entryPrice'])
-                    break
+            position_amt = float(positions_info['positionAmt'])
+            entry_price = float(positions_info['entryPrice'])
 
             # If no open position, exit the function
             if position_amt == 0.0:
@@ -448,17 +651,12 @@ class BinanceTrader(BaseTrader):
             default is 20
         """
         # Get the current position for the symbol
-        positions_info = self.client.futures_position_information()
+        positions_info = self.client.futures_position_information(symbol=symbol)[0]
         position_amt = 0.0
         entry_price = 0.0
-
-        # Loop over positions to find the symbol
-        for position in positions_info:
-            if position['symbol'] == symbol:
-                position_amt = float(position['positionAmt'])
-                entry_price = float(position['entryPrice'])
-                position = position
-                break
+        
+        position_amt = float(positions_info['positionAmt'])
+        entry_price = float(positions_info['entryPrice'])
 
         # If no open position, exit the function
         if position_amt == 0.0:
