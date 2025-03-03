@@ -6,6 +6,7 @@ import boto3
 import datetime
 from datetime import timezone
 from decimal import Decimal
+from logging import Logger
 import functools
 
 from .__base import BaseNoSQL
@@ -15,8 +16,9 @@ from .__base import BaseNoSQL
 ##############################################################################
 
 class DynamoDB(BaseNoSQL):
-    def __init__(self):
+    def __init__(self, logger: Logger):
         self.client = boto3.resource('dynamodb')
+        self.logger = logger
     
     ###########
     # Wrapper #
@@ -104,6 +106,7 @@ class DynamoDB(BaseNoSQL):
         
         # Put the item into the table. This will overwrite an existing record with the same key.
         response = table.put_item(Item=item)
+        self.logger.info(f"Ingested with status: {response}")
         return response
 
     ##########################################################################
@@ -124,12 +127,15 @@ class DynamoDB(BaseNoSQL):
         dict
             Response from the DynamoDB API.
         """
+        print(table)
+        print(item)
+        
         # Create a DynamoDB resource and reference the table by the provided name.
         table_ref = self.client.Table(table)
-        
+
         # Put the item into the table (this performs an upsert).
-        response = table_ref.delete_item(Item=item)
-        
+        response = table_ref.delete_item(Key=item)
+        self.logger.info(f"Deleted with status: {response}")
         return response
 
     #############
