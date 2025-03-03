@@ -96,7 +96,7 @@ class DynamoDB(BaseNoSQL):
             Response from API
         """
         # Create a DynamoDB resource and reference the Predictions table.
-        table = self.client.Table('predictions')
+        table = self.client.Table(table)
         
         # Get the current UTC time as an ISO 8601 formatted string.
         updated_at = datetime.datetime.now(tz=timezone.utc).isoformat()
@@ -137,6 +137,32 @@ class DynamoDB(BaseNoSQL):
         response = table_ref.delete_item(Key=item)
         self.logger.info(f"Deleted with status: {response}")
         return response
+    
+    ##########################################################################
+    
+    def print_all_records(self, table: str) -> None:
+        """
+        Scan and print all records from the given DynamoDB table.
+        
+        Parameters
+        ----------
+        table : str
+            The name of the DynamoDB table to scan.
+        """
+        table_ref = self.client.Table(table)
+        
+        # Start with an initial scan.
+        response = table_ref.scan()
+        items = response.get("Items", [])
+        
+        # Continue scanning if there's a LastEvaluatedKey.
+        while "LastEvaluatedKey" in response:
+            response = table_ref.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+            items.extend(response.get("Items", []))
+        
+        # Print each record.
+        for item in items:
+            print(item)
 
     #############
     # Utilities #
