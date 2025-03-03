@@ -302,31 +302,31 @@ class BinanceTrader(BaseTrader):
     ##########################################################################
     
     def update_dynamic_stop_loss(
-        self,
-        symbol: str,
-        trailing_levels: list = [
-            (3, 1.5), 
-            (5, 3),
-            (7, 4.5),
-            (9, 6),
-            (11, 7.5),
-            (15, 10),
-            (20, 15),
-            (25, 20),
-            (30, 25),
-            (40, 35),
-            (50, 45),
-            (60, 55),
-            (70, 65),
-            (80, 75),
-            (90, 85),
-        ]
-    ) -> None:
+            self,
+            symbol: str,
+            trailing_levels: list = [
+                (3, 1.5), 
+                (5, 3),
+                (7, 5),
+                (9, 7),
+                (11, 9),
+                (15, 12),
+                (20, 18),
+                (25, 20),
+                (30, 25),
+                (40, 35),
+                (50, 45),
+                (60, 55),
+                (70, 65),
+                (80, 75),
+                (90, 85),
+            ]
+        ) -> None:
         """
         Dynamically adjust stop-loss based on current unrealized profit thresholds.
         
-        If an existing stop-loss is already set within the correct range (within tolerance),
-        then no new stop-loss order is created.
+        If an existing stop-loss is already set within the correct range (within tolerance)
+        or if updating would reduce your locked-in profit, no new stop-loss order is created.
 
         Parameters
         ----------
@@ -382,7 +382,6 @@ class BinanceTrader(BaseTrader):
             triggered_level = None
             
             for (profit_trigger, stop_loss_level) in trailing_levels_sorted:
-
                 if profit_pct >= profit_trigger:
                     triggered_level = (profit_trigger, stop_loss_level)
                 else:
@@ -406,6 +405,23 @@ class BinanceTrader(BaseTrader):
             
             # 7. Round to precision (assuming you have a function to do so)
             new_sl_price = self.round_down_to_precision(new_sl_price)
+
+            # Additional check: ensure that updating stop-loss doesn't reduce locked profit.
+            # For LONG: new SL should be >= current SL, for SHORT: new SL should be <= current SL.
+            if current_sl_order:
+                current_sl_price = float(current_sl_order.get('stopPrice', 0))
+                if side == "LONG" and new_sl_price < current_sl_price:
+                    self.logger.info(
+                        f"New stop-loss price {new_sl_price} is lower than current SL {current_sl_price}. "
+                        "No update necessary as it would reduce locked profit."
+                    )
+                    return
+                elif side == "SHORT" and new_sl_price > current_sl_price:
+                    self.logger.info(
+                        f"New stop-loss price {new_sl_price} is higher than current SL {current_sl_price}. "
+                        "No update necessary as it would reduce locked profit."
+                    )
+                    return
 
             self.logger.info(
                 f"Triggered level {triggered_level[0]}% => Adjusting stop-loss to lock in "
