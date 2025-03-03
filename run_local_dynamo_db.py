@@ -26,19 +26,18 @@ if __name__ == '__main__':
     dynamo = DynamoDB()
     table = 'predictions'
     model_type = 'GRU'
-    prediction = {"value": 0, "confident": 0.8}
+    prediction = {"value": 1, "confident": 0.8}
     
     prediction_data = {}
     
     prediction_data['asset'] = 'BTCUSDT'
     prediction_data['model_type'] = 'GRU'
-    prediction_data['asset'] = 'BTCUSDT'
     prediction_data['prediction'] = prediction
     prediction_data['record_type'] = 'MODEL'
     
     prediction_data = dynamo.to_decimal(prediction_data)
     
-    # response = dynamo.ingest_data(table, item=prediction_data)
+    response = dynamo.ingest_data(table, item=prediction_data)
     # print(response)
     
     
@@ -46,7 +45,14 @@ if __name__ == '__main__':
         'asset': 'BTCUSDT',
         'model_type': 'GRU'
     }
+    
     data = dynamo.query_data(table, key)
     print(data)
+    """
+    dynamo.delete_data(table, key)
+    
+    data = dynamo.query_data(table, key)
+    print(data)
+    """
 
 ##############################################################################

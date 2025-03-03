@@ -6,6 +6,7 @@ import boto3
 import datetime
 from datetime import timezone
 from decimal import Decimal
+import functools
 
 from .__base import BaseNoSQL
 
@@ -17,6 +18,29 @@ class DynamoDB(BaseNoSQL):
     def __init__(self):
         self.client = boto3.resource('dynamodb')
     
+    ###########
+    # Wrapper #
+    ##########################################################################
+    
+    def capture_response_status(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            response = func(*args, **kwargs)
+            
+            # Retrieve the HTTP status code from the response metadata.
+            status = response.get("ResponseMetadata", {}).get("HTTPStatusCode", None)
+            
+            # If status is missing or not in the 2xx range, raise an exception.
+            if status is None or not (200 <= status < 300):
+                raise Exception(
+                    f"Operation failed with status code {status}. Response: {response}"
+                )
+            # Otherwise, return a dict containing the status and full response.
+            return {"status": status, "response": response}
+        return wrapper
+
+    ##################
+    # Data ingestion #
     ##########################################################################
     
     def query_data(self, table: str, key: dict) -> dict:
@@ -47,6 +71,7 @@ class DynamoDB(BaseNoSQL):
     
     ##########################################################################
     
+    @capture_response_status
     def ingest_data(
             self,
             table: str, 
@@ -80,7 +105,33 @@ class DynamoDB(BaseNoSQL):
         # Put the item into the table. This will overwrite an existing record with the same key.
         response = table.put_item(Item=item)
         return response
+
+    ##########################################################################
     
+    @capture_response_status
+    def delete_data(self, table: str, item: dict) -> dict:
+        """Delete data from `table`, by item key.
+
+        Parameters
+        ----------
+        table : str
+            Name of the table in DynamoDB.
+        item : dict
+            Dictionary of the item. Must specify the primary key attributes.
+
+        Returns
+        -------
+        dict
+            Response from the DynamoDB API.
+        """
+        # Create a DynamoDB resource and reference the table by the provided name.
+        table_ref = self.client.Table(table)
+        
+        # Put the item into the table (this performs an upsert).
+        response = table_ref.delete_item(Item=item)
+        
+        return response
+
     #############
     # Utilities #
     ##########################################################################
@@ -97,5 +148,7 @@ class DynamoDB(BaseNoSQL):
             return [self.to_decimal(x) for x in obj]
         else:
             return obj
+    
+    ##########################################################################
 
 ##############################################################################
