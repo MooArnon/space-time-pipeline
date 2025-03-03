@@ -1,5 +1,6 @@
 from space_time_pipeline.nosql.dynamo_db import DynamoDB
 import logging
+from datetime import datetime, timezone
 
 ##############################################################################
 
@@ -8,52 +9,50 @@ logger = logging.getLogger(__name__)
 
 # Example usage:
 if __name__ == '__main__':
+    current_timestamp = datetime.now(timezone.utc)
+    model_type = [
+        "random_forest",
+        "xgboost",
+        "logistic_regression",
+        "gru",
+        "lstm",
+        "cnn",
+        "dnn",
+    ]
     
     dynamo = DynamoDB(logger)
+    table = 'classifier_weight'
     
-    # Insert
-    prediction_data = {}
-    asset = "BTCUSDT"
-    model_type = 'GRU'
-    prediction = {"value": 1, "confident": 0.6}
-    table = 'predictions'
-    """
-    prediction_data['asset'] = asset
-    prediction_data['model_type'] = 'GRU'
-    prediction_data['asset'] = model_type
-    prediction_data['prediction'] = prediction
-    prediction_data['record_type'] = 'MODEL'
-    
-    response = upsert_prediction(
-        table = table,
-        prediction_data=prediction_data,
-    )
-    
-    prediction = {"value": 1, "confident": 0.8}
-    
-    prediction_data = {}
-    
-    prediction_data['asset'] = asset
-    prediction_data['model_type'] = 'GRU'
-    prediction_data['prediction'] = prediction
-    prediction_data['record_type'] = 'MODEL'
-    
-    prediction_data = dynamo.to_decimal(prediction_data)
-    
-    response = dynamo.ingest_data(table, item=prediction_data)
+    for model in model_type:
+        # Insert
+        prediction_data = {
+            "model_type": model,
+            "asset": "BTCUSDT",
+            "weight": "0.14",
+            "created_timestamp": str(current_timestamp),
+        }
+        prediction_data = dynamo.to_decimal(prediction_data)
+        
+        response = dynamo.ingest_data('classifier_weight', item=prediction_data)
     # print(response)
     
-    """
+    
+    
     key = {
-        'asset': asset,
-        'model_type': model_type
+        'asset': 'BTCUSDT',
+        'model_type': 'random_forest'
     }
     
-    data = dynamo.query_data(table, key)
+    data = dynamo.query_data('classifier_weight', key)
     print(data)
     
-    dynamo.delete_data(table, key)
+    data = dynamo.print_all_records('classifier_weight')
+    print(data)
+    
     """
+    dynamo.delete_data(table, key)
+
+    
     data = dynamo.query_data(table, key)
     print(data)
     """
