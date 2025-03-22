@@ -22,7 +22,6 @@ if __name__ == '__main__':
     
     dynamo = DynamoDB(logger)
     table = 'classifier_weight'
-    
     for model in model_type:
         # Insert
         prediction_data = {
@@ -36,20 +35,19 @@ if __name__ == '__main__':
         response = dynamo.ingest_data('classifier_weight', item=prediction_data)
     # print(response)
     
-    
-    
+    """
     key = {
         'asset': 'BTCUSDT',
-        'model_type': 'random_forest'
+        'model_type': 'xgboost'
     }
     
-    data = dynamo.query_data('classifier_weight', key)
+    # data = dynamo.query_data('predictions', key)
+    # print(data)
+    
+    data = dynamo.print_all_records('predictions')
     print(data)
     
-    data = dynamo.print_all_records('classifier_weight')
-    print(data)
     
-    """
     dynamo.delete_data(table, key)
 
     
