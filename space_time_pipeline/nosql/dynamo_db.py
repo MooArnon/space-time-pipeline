@@ -8,6 +8,7 @@ from datetime import timezone
 from decimal import Decimal
 from logging import Logger
 import functools
+import time
 
 from .__base import BaseNoSQL
 
@@ -78,6 +79,7 @@ class DynamoDB(BaseNoSQL):
             self,
             table: str, 
             item: dict, 
+            expire_day: int = None
     ) -> dict:
         """To Insert or update data into dynamoDB
         Proceed insert when we dont have key value, included in item dict.
@@ -105,7 +107,13 @@ class DynamoDB(BaseNoSQL):
         item['updated_at'] = updated_at
         
         # Put the item into the table. This will overwrite an existing record with the same key.
-        response = table.put_item(Item=item)
+        if isinstance(expire_day, int):
+            expiration_timestamp = int(time.time()) + (expire_day * 24 * 60 * 60)
+            item['expiration_time'] = expiration_timestamp
+            response = table.put_item(Item=item)
+        
+        else:
+            response = table.put_item(Item=item)
         self.logger.info(f"Ingested with status: {response}")
         return response
 
@@ -161,8 +169,10 @@ class DynamoDB(BaseNoSQL):
             items.extend(response.get("Items", []))
         
         # Print each record.
-        for item in items:
-            print(item)
+        # for item in items:
+        #     print(item)
+        
+        return items
 
     #############
     # Utilities #
